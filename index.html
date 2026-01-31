@@ -7,19 +7,20 @@
     <style>
         :root { --red: #ff4d4f; --green: #52c41a; --bg: #f7f9fc; }
         body { background: var(--bg); font-family: -apple-system, sans-serif; margin: 0; padding: 10px; }
-        .header { background: linear-gradient(135deg, #1890ff, #0050b3); color: white; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
+        .header { background: linear-gradient(135deg, #1890ff, #0050b3); color: white; padding: 20px; border-radius: 16px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(24,144,255,0.3); }
         .total-profit { font-size: 30px; font-weight: bold; margin: 8px 0; }
-        .card { background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; justify-content: space-between; align-items: center; }
-        .name { font-size: 15px; font-weight: 600; color: #262626; }
+        .card { background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); display: flex; justify-content: space-between; align-items: center; border: 1px solid #f0f0f0; }
+        .name { font-size: 14px; font-weight: 600; color: #262626; margin-bottom: 4px; }
         .rate { font-size: 17px; font-weight: bold; }
         .up { color: var(--red); } .down { color: var(--green); }
+        .detail { font-size: 11px; color: #8c8c8c; }
     </style>
 </head>
 <body>
     <div class="header">
         <div style="font-size: 13px; opacity: 0.8;">今日预计总收益 (元)</div>
         <div id="totalProfit" class="total-profit">获取中...</div>
-        <div id="updateTime" style="font-size:11px;opacity:0.6;">正在直连天天基金...</div>
+        <div id="updateTime" style="font-size:11px;opacity:0.6;">最后更新: --:--:--</div>
     </div>
     <div id="fundList"></div>
 
@@ -37,39 +38,57 @@
         ];
 
         function fetchFund() {
-            let totalDay = 0;
+            let results = new Array(myFunds.length);
             let loadedCount = 0;
-            let listHtml = '';
-            
-            myFunds.forEach(f => {
-                // 使用 JSONP 方式，这是绕过“加载中”最稳的方法
+
+            myFunds.forEach((f, index) => {
                 const script = document.createElement('script');
-                script.src = `https://fundgz.1234567.com.cn/js/${f.id}.js?rt=${Date.now()}`;
-                window['jsonpgz'] = function(d) {
+                // 创建一个唯一的全局回调函数，防止名字被覆盖
+                const callbackName = `jsonp_callback_${index}_${Date.now()}`;
+                window[callbackName] = function(d) {
                     const gzl = parseFloat(d.gszzl);
                     const dayProfit = f.shares * (parseFloat(d.gsz) - parseFloat(d.dwjz));
-                    totalDay += dayProfit;
                     const color = gzl >= 0 ? 'up' : 'down';
                     
-                    listHtml += `<div class="card">
-                        <div><div class="name">${f.n}</div><div style="font-size:11px;color:#999;">收益: <span class="${color}">${dayProfit.toFixed(2)}</span></div></div>
+                    results[index] = `<div class="card">
+                        <div>
+                            <div class="name">${f.n}</div>
+                            <div class="detail">收益: <span class="${color}">${gzl > 0 ? '+' : ''}${dayProfit.toFixed(2)}</span></div>
+                        </div>
                         <div class="rate ${color}">${gzl > 0 ? '+' : ''}${gzl.toFixed(2)}%</div>
                     </div>`;
                     
                     loadedCount++;
+                    delete window[callbackName]; // 清理
+                    
                     if (loadedCount === myFunds.length) {
-                        document.getElementById('fundList').innerHTML = listHtml;
-                        document.getElementById('totalProfit').innerText = (totalDay >= 0 ? '+' : '') + totalDay.toFixed(2);
-                        document.getElementById('totalProfit').className = 'total-profit ' + (totalDay >= 0 ? 'up' : 'down');
-                        document.getElementById('updateTime').innerText = '最后同步：' + new Date().toLocaleTimeString();
+                        renderAll(results);
                     }
                 };
+                script.src = `https://fundgz.1234567.com.cn/js/${f.id}.js?callback=${callbackName}&rt=${Date.now()}`;
                 document.body.appendChild(script);
             });
         }
 
+        function renderAll(results) {
+            document.getElementById('fundList').innerHTML = results.join('');
+            const totalDay = myFunds.reduce((acc, f, i) => {
+                // 重新简单计算总收益
+                return acc; 
+            }, 0); // 这里为了性能直接从DOM取值或在此重新精算
+            
+            // 计算页面上所有收益的总和
+            let finalTotal = 0;
+            const profits = document.querySelectorAll('.detail span');
+            profits.forEach(p => finalTotal += parseFloat(p.innerText));
+
+            document.getElementById('totalProfit').innerText = (finalTotal >= 0 ? '+' : '') + finalTotal.toFixed(2);
+            document.getElementById('totalProfit').className = 'total-profit ' + (finalTotal >= 0 ? 'up' : 'down');
+            document.getElementById('updateTime').innerText = '最后同步：' + new Date().toLocaleTimeString();
+        }
+
         fetchFund();
-        setInterval(fetchFund, 15000);
+        setInterval(fetchFund, 20000);
     </script>
 </body>
 </html>
