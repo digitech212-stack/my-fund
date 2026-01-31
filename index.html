@@ -7,95 +7,68 @@
     <style>
         :root { --red: #ff4d4f; --green: #52c41a; --bg: #f7f9fc; }
         body { background: var(--bg); font-family: -apple-system, sans-serif; margin: 0; padding: 10px; }
-        .header { background: linear-gradient(135deg, #1890ff, #0050b3); color: white; padding: 20px; border-radius: 16px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(24,144,255,0.3); }
-        .total-label { font-size: 13px; opacity: 0.8; }
+        .header { background: linear-gradient(135deg, #1890ff, #0050b3); color: white; padding: 20px; border-radius: 16px; margin-bottom: 15px; }
         .total-profit { font-size: 30px; font-weight: bold; margin: 8px 0; }
-        
-        /* 列表样式优化 */
-        .card { background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.04); }
-        .row-main { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
-        .row-detail { display: flex; justify-content: space-between; font-size: 12px; color: #8c8c8c; border-top: 1px dashed #f0f0f0; padding-top: 8px; }
-        
-        .name { font-size: 15px; font-weight: 600; color: #262626; max-width: 65%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .rate-box { text-align: right; }
-        .rate { font-size: 17px; font-weight: bold; }
-        
-        .up { color: var(--red); }
-        .down { color: var(--green); }
-        .gray { color: #8c8c8c; }
-        
-        .label { margin-right: 4px; }
-        .val { font-weight: 500; color: #434343; }
-        .update-time { font-size: 11px; color: rgba(255,255,255,0.6); margin-top: 5px; }
+        .card { background: white; padding: 14px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #eee; }
+        .row-main { display: flex; justify-content: space-between; margin-bottom: 8px; font-weight: bold; }
+        .row-detail { display: flex; justify-content: space-between; font-size: 12px; color: #8c8c8c; }
+        .up { color: var(--red); } .down { color: var(--green); }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="total-label">今日预计总收益 (元)</div>
-        <div id="totalProfit" class="total-profit">+0.00</div>
-        <div id="updateTime" class="update-time">同步中...</div>
+        <div style="font-size:13px;">今日预计总收益 (元)</div>
+        <div id="totalProfit" class="total-profit">加载中...</div>
+        <div id="updateTime" style="font-size:11px;opacity:0.6;">正在尝试连接...</div>
     </div>
-
     <div id="fundList"></div>
 
     <script>
-        // 这里的 shares 是根据你截图资产估算的，如需完全精确请自行修改
         const myFunds = [
-            { id: '002112', shares: 3320.35, n: '德邦鑫星价值灵活配置' },
-            { id: '003053', shares: 8237.47, n: '嘉实中证半导体产业' },
-            { id: '161226', shares: 334.77,  n: '国投瑞银白银期货(LOF)' },
-            { id: '012717', shares: 1758.65, n: '富国创业板人工智能' },
-            { id: '005969', shares: 736.27,  n: '国泰中证全指通信设备' },
-            { id: '018602', shares: 1366.82, n: '永赢半导体产业智选' },
-            { id: '015919', shares: 612.30,  n: '永赢先锋半导体智选' },
-            { id: '159770', shares: 516.42,  n: '天弘中证机器人ETF' },
-            { id: '001302', shares: 869.25,  n: '前海开源金银珠宝混合' }
+            { id: '002112', shares: 3320.35, n: '德邦鑫星价值' },
+            { id: '003053', shares: 8237.47, n: '嘉实半导体' },
+            { id: '161226', shares: 334.77,  n: '国投白银期货' },
+            { id: '012717', shares: 1758.65, n: '富国人工智能' },
+            { id: '005969', shares: 736.27,  n: '国泰通信设备' },
+            { id: '018602', shares: 1366.82, n: '永赢半导体智选' },
+            { id: '015919', shares: 612.30,  n: '永赢先锋半导体' },
+            { id: '159770', shares: 516.42,  n: '天弘机器人ETF' },
+            { id: '001302', shares: 869.25,  n: '前海开源金银珠宝' }
         ];
 
         async function fetchFund() {
             let totalDay = 0;
             let listHtml = '';
-            
+            // 使用兼容所有浏览器的老接口，但加上 JSONP 模拟或代理
             for (let f of myFunds) {
                 try {
-                    const r = await fetch(`https://api.fund.eastmoney.com/FundMApi/FundVarietieValuationDetail?FCODE=${f.id}&_=${Date.now()}`);
-                    const json = await r.json();
-                    const d = json.Data;
+                    // 使用 bird.ioliu.cn 代理绕过 Safari 跨域限制
+                    const url = `https://bird.ioliu.cn/v1/?url=https://fundgz.1234567.com.cn/js/${f.id}.js?rt=${Date.now()}`;
+                    const r = await fetch(url);
+                    const text = await r.text();
+                    // 解析天天基金的 js 格式: jsonpgz({...});
+                    const jsonStr = text.match(/\((.*)\)/)[1];
+                    const d = JSON.parse(jsonStr);
                     
-                    const gzl = parseFloat(d.gzl); // 涨跌幅
-                    const gsz = parseFloat(d.gsz); // 估算净值
-                    const dwjz = parseFloat(d.dwjz); // 昨日净值
-                    
-                    const dayProfit = f.shares * (gsz - dwjz); // 今日收益
+                    const gzl = parseFloat(d.gszzl);
+                    const dayProfit = f.shares * (parseFloat(d.gsz) - parseFloat(d.dwjz));
                     totalDay += dayProfit;
-                    
                     const color = gzl >= 0 ? 'up' : 'down';
-                    const sign = gzl > 0 ? '+' : '';
 
-                    listHtml += `
-                        <div class="card">
-                            <div class="row-main">
-                                <div class="name">${f.n}</div>
-                                <div class="rate-box">
-                                    <div class="rate ${color}">${sign}${gzl.toFixed(2)}%</div>
-                                </div>
-                            </div>
-                            <div class="row-detail">
-                                <div><span class="label">当日收益:</span><span class="val ${color}">${sign}${dayProfit.toFixed(2)}</span></div>
-                                <div><span class="label">估值:</span><span class="val">${gsz.toFixed(4)}</span></div>
-                            </div>
-                        </div>`;
+                    listHtml += `<div class="card">
+                        <div class="row-main"><div>${f.n}</div><div class="${color}">${gzl >= 0 ? '+' : ''}${gzl}%</div></div>
+                        <div class="row-detail"><div>收益: <span class="${color}">${dayProfit.toFixed(2)}</span></div><div>估值: ${d.gsz}</div></div>
+                    </div>`;
                 } catch (e) { console.error(e); }
             }
-            
-            document.getElementById('fundList').innerHTML = listHtml;
+            document.getElementById('fundList').innerHTML = listHtml || '数据抓取失败，请稍后再试';
             document.getElementById('totalProfit').innerText = (totalDay >= 0 ? '+' : '') + totalDay.toFixed(2);
             document.getElementById('totalProfit').className = 'total-profit ' + (totalDay >= 0 ? 'up' : 'down');
-            document.getElementById('updateTime').innerText = '数据更新时间：' + new Date().toLocaleTimeString();
+            document.getElementById('updateTime').innerText = '更新时间：' + new Date().toLocaleTimeString();
         }
 
         fetchFund();
-        setInterval(fetchFund, 10000); // 10秒刷一次
+        setInterval(fetchFund, 10000);
     </script>
 </body>
 </html>
