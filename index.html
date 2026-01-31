@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>我的实盘</title>
+    <style>
+        :root { --red: #ff4d4f; --green: #52c41a; --bg: #f0f2f5; }
+        body { background: var(--bg); font-family: -apple-system, system-ui; margin: 0; padding: 15px; }
+        .header { background: #1890ff; color: white; padding: 20px; border-radius: 15px; margin-bottom: 15px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .total-profit { font-size: 32px; font-weight: bold; margin: 5px 0; }
+        .card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        .fund-info { flex: 1; }
+        .fund-name { font-size: 16px; font-weight: bold; color: #333; margin-bottom: 4px; }
+        .fund-meta { font-size: 12px; color: #999; }
+        .fund-data { text-align: right; }
+        .rate { font-size: 18px; font-weight: bold; }
+        .money { font-size: 13px; margin-top: 4px; }
+        .up { color: var(--red); } .down { color: var(--green); }
+        .time { font-size: 10px; color: #ccc; text-align: center; margin-top: 10px; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div style="font-size: 14px; opacity: 0.9;">今日预计总盈亏</div>
+        <div id="totalProfit" class="total-profit">￥0.00</div>
+        <div id="updateTime" style="font-size: 11px; opacity: 0.7;">正在连接数据源...</div>
+    </div>
+    <div id="fundList"></div>
+    <div class="time">数据仅供参考，10秒自动更新一次</div>
+
+    <script>
+        const myFunds = [
+            { id: '002112', shares: 3320.35, n: '德邦鑫星价值' },
+            { id: '003053', shares: 8237.47, n: '嘉实半导体' },
+            { id: '161226', shares: 334.77, n: '国投白银期货' },
+            { id: '012717', shares: 1758.65, n: '富国人工智能' },
+            { id: '005969', shares: 736.27, n: '国泰通信设备' },
+            { id: '018602', shares: 1366.82, n: '永赢半导体智选' },
+            { id: '015919', shares: 612.30, n: '永赢先锋半导体' },
+            { id: '159770', shares: 516.42, n: '天弘机器人ETF' },
+            { id: '001302', shares: 869.25, n: '前海开源金银珠宝' }
+        ];
+
+        async function refresh() {
+            let total = 0;
+            let html = '';
+            for (let f of myFunds) {
+                try {
+                    // 使用备用新接口，绕过旧版限制
+                    const r = await fetch(`https://api.fund.eastmoney.com/FundMApi/FundVarietieValuationDetail?FCODE=${f.id}&_=${Date.now()}`);
+                    const json = await r.json();
+                    const data = json.Data;
+                    
+                    const gzl = parseFloat(data.gzl);
+                    const dayProfit = f.shares * (parseFloat(data.gsz) - parseFloat(data.dwjz));
+                    total += dayProfit;
+                    
+                    const color = gzl >= 0 ? 'up' : 'down';
+                    html += `<div class="card">
+                        <div class="fund-info">
+                            <div class="fund-name">${f.n}</div>
+                            <div class="fund-meta">${f.id} | 持有:${f.shares}</div>
+                        </div>
+                        <div class="fund-data">
+                            <div class="rate ${color}">${gzl > 0 ? '+' : ''}${gzl}%</div>
+                            <div class="money ${color}">${dayProfit >= 0 ? '+' : ''}${dayProfit.toFixed(2)}元</div>
+                        </div>
+                    </div>`;
+                } catch (e) { console.log(e) }
+            }
+            document.getElementById('fundList').innerHTML = html;
+            document.getElementById('totalProfit').innerText = `￥${total.toFixed(2)}`;
+            document.getElementById('totalProfit').className = 'total-profit ' + (total >= 0 ? 'up' : 'down');
+            document.getElementById('updateTime').innerText = '最后更新：' + new Date().toLocaleTimeString();
+        }
+
+        refresh();
+        setInterval(refresh, 10000);
+    </script>
+</body>
+</html>
